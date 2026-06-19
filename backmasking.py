@@ -18,23 +18,25 @@ from IPython.display import Audio, display
 from tqdm import trange
 
 class Backmasking:
-    def __init__(self, audio_path = 'Audio_Sample_-_The_Quick_Brown_Fox_Jumps_Over_The_Lazy_Dog.ogg', 
+    def __init__(self, audio_path = 'inputs/sample.ogg', 
                  binary_search_steps = 5, initial_constant = .001, 
                  lr = 0.01, max_iterations = 500):
         
+        # load model and its utilities
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu' 
         self.processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
         self.model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h").to(self.device)
         self.required_sampling_rate = self.processor.feature_extractor.sampling_rate
         self.ctc_loss_fn = CTCLoss(blank=self.processor.tokenizer.pad_token_id, zero_infinity=True)
 
+        # process audio
         self.audio_path = audio_path
         self.forward_waveform = self.preprocess_audio(audio_path)
         self.forward_transcription = self.transcribe(self.forward_waveform)
-        
         self.reverse_waveform = self.reverse_audio(self.forward_waveform)
         self.reverse_transcription = self.transcribe(self.reverse_waveform)
         
+        # perform Carlini-Wagner attack
         self.binary_search_steps = binary_search_steps
         self.initial_constant = initial_constant
         self.lr = lr
@@ -44,6 +46,20 @@ class Backmasking:
         self.converged = (self.adversarial_waveform != self.reverse_waveform).any().item()
         
     def preprocess_audio(self, audio_path):
+        """
+        Loads an audio file, and returns a single channel signal sampled at 16kHz
+
+        Parameters
+        ----------
+        audio_path : string
+            file path pointing to an audio file, .ogg and .wav are supported.
+
+        Returns
+        -------
+        waveform : torch.Tensor
+            DESCRIPTION.
+
+        """
         waveform, sample_rate = torchaudio.load(audio_path)
         # wav2vec2 expects 16kHz audio
         if sample_rate != self.required_sampling_rate:
@@ -59,6 +75,21 @@ class Backmasking:
         display(Audio(waveform, rate=self.required_sampling_rate))
     
     def transcribe(self, waveform):
+        """
+        Infers upon the Wav2Vec2 model and returns the transcript of a given 
+        audio waveform
+
+        Parameters
+        ----------
+        waveform : torch.Tensor
+            DESCRIPTION.
+
+        Returns
+        -------
+        transcription : string
+            DESCRIPTION.
+
+        """
         with torch.no_grad():
             logits = self.model(waveform).logits
         
@@ -68,12 +99,36 @@ class Backmasking:
         return transcription
     
     def reverse_audio(self, waveform):
+        """
+        Reverses the order of a given audio waveform
+
+        Parameters
+        ----------
+        waveform : torch.Tensor
+            DESCRIPTION.
+
+        Returns
+        -------
+        reverse : torch.Tensor
+            DESCRIPTION.
+
+        """
         reverse = torch.flip(waveform, dims = [1])
     
         return reverse
     
     def select_target(self):
-        with open('targets.txt', mode='r', encoding='utf-8') as file:
+        """
+        Randomly selects a quote from targets.txt to serve as the target 
+        transcription for the upcomming Carlini-Wagner attack
+
+        Returns
+        -------
+        target : string
+            DESCRIPTION.
+
+        """
+        with open('inputs/targets.txt', mode='r', encoding='utf-8') as file:
             targets = file.read()
             
         targets = targets.split('\n')
@@ -101,8 +156,8 @@ class Backmasking:
                 lowerbound_c = c 
                 c = (lowerbound_c + upperbound_c)/2
             elif (converged == False) and (yet_to_converge == True):
-                c *= 10
                 lowerbound_c = c 
+                c *= 10
         
         return best_adverserial_audio
                 
@@ -131,7 +186,7 @@ class Backmasking:
             # The adversarial audio sample
             adversarial_audio = torch.tanh(w + w_perturbations)
             
-            # Forward pass through Wav2Vec2 to get raw logits
+            # Forward pass through Wav2Vec2 model to get raw logits
             # Depending on your architecture, you may need to compute features first
             logits = self.model(adversarial_audio).logits  # Shape: [1, frame_steps, vocab_size]
             
@@ -180,7 +235,7 @@ if __name__ == "__main__":
     print(backmask.reverse_transcription)
     print(backmask.target)
     
-    backmask.play_audio(backmask.original_waveform)
+    backmask.play_audio(backmask.forward_waveform)
     backmask.play_audio(backmask.reverse_waveform)
     if backmask.converged:
         backmask.play_audio(backmask.adversarial_waveform)

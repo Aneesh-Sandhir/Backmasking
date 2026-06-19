@@ -1,0 +1,1 @@
+An exercise in adapting the Carlini-Wagner evasion attack to speach to text models. This script is meant to spoof the concept of backmasking which was entered the zeitgeist during the Satanic Panic of the 1980's

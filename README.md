@@ -1,1 +1,5 @@
-An exercise in adapting the Carlini-Wagner evasion attack to speach to text models. This script is meant to spoof the concept of backmasking which was entered the zeitgeist during the Satanic Panic of the 1980's
+Backmasking first entered the public consciousness during the Satanic Panic of the 1980s. Through confirmation bias and pareidolia, concerned citizens convinced themselves that hidden messages in popular music were seeding a zeal for Satan in the minds of impressionable youth. Playing these songs backward purportedly revealed satanic messages, with notable examples including Led Zeppelin's Stairway to Heaven and Judas Priest's Better by You, Better Than Me, the latter leading to legal action against the group.
+
+This repository toys with the idea of backmasking by leveraging the Carlini–Wagner evasion attack against speech-to-text models. It strategically adds noise to the reverse of a given waveform to cause the model to misclassify the input as a target phrase while minimizing distortion. As currently configured, the target phrase is randomly selected from a list of quotes from satanic literature in inputs/targets.txt. The input waveform must also reside in the inputs directory.
+
+Credit to Nicholas Carlini and David Wagner for their paper on adapting the Carlini–Wagner algorithm to speech-to-text models: https://arxiv.org/pdf/1801.01944

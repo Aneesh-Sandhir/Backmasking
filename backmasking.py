@@ -57,7 +57,7 @@ class Backmasking:
         Returns
         -------
         waveform : torch.Tensor
-            DESCRIPTION.
+            single channel audio signal sampled at 16kHz
 
         """
         waveform, sample_rate = torchaudio.load(audio_path)
@@ -82,12 +82,12 @@ class Backmasking:
         Parameters
         ----------
         waveform : torch.Tensor
-            DESCRIPTION.
+            audio signal to be input into the Wav2Vec2 model. 
 
         Returns
         -------
         transcription : string
-            DESCRIPTION.
+            transcription of the audio fed into the model.
 
         """
         with torch.no_grad():
@@ -105,12 +105,12 @@ class Backmasking:
         Parameters
         ----------
         waveform : torch.Tensor
-            DESCRIPTION.
+            audio signal to be reversed.
 
         Returns
         -------
         reverse : torch.Tensor
-            DESCRIPTION.
+            reverse of the audio signal given as an input.
 
         """
         reverse = torch.flip(waveform, dims = [1])
@@ -119,13 +119,13 @@ class Backmasking:
     
     def select_target(self):
         """
-        Randomly selects a quote from targets.txt to serve as the target 
-        transcription for the upcomming Carlini-Wagner attack
+        Randomly selects a quote from inputs/targets.txt to serve as the 
+        target transcription for the upcomming Carlini-Wagner attack
 
         Returns
         -------
         target : string
-            DESCRIPTION.
+            randomly selected quote.
 
         """
         with open('inputs/targets.txt', mode='r', encoding='utf-8') as file:
@@ -139,6 +139,23 @@ class Backmasking:
         return target
     
     def CW_outter(self, waveform, target):
+        """
+        Iteratively adjusts the constant which balances maximizing the
+        confidence in the target transrcription while minimizing distortion
+
+        Parameters
+        ----------
+        waveform : torch.Tensor
+            audio signal to be manipulated
+        target : string
+            transcription the attack aims to produce
+        
+        Returns
+        -------
+        best_adverserial_audio : torch.Tensor
+            least distorted adverserial audio signal that aims to
+            produce the desired transcription
+        """
         
         yet_to_converge = True
         c = self.initial_constant
@@ -163,9 +180,27 @@ class Backmasking:
                 
     def CW_inner(self, waveform, target, c):
         """
-        original_waveform: 1D torch.Tensor of audio at 16000Hz
-        target: string (e.g., "TAKE ME TO YOUR LEADER")
-        """        
+        Iteratively builds an distortion pattern which when added
+        to the given waveform produces the given traget 
+        transcription when fed to the model for a given constant
+
+        Parameters
+        ----------
+        waveform : torch.Tensor
+            audio signal to be manipulated
+        target : string
+            transcription the attack aims to produce
+        c : float
+            constant which balances maximizing the confidence 
+            in the target transrcription while minimizing distortion
+        
+        Returns
+        -------
+        best_adverserial_audio : torch.Tensor
+            least distorted adverserial audio signal that aims to
+            produce the desired transcription for a given value 
+            of c
+        """   
         # 1. Prepare target tokens
         target_tokens = self.processor(text=target, return_tensors="pt").input_ids[0].to(self.device)
         target_length = torch.tensor([len(target_tokens)], dtype=torch.long).to(self.device)
